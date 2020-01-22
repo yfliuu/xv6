@@ -8,6 +8,7 @@ XOBJS = kobj/vm64.o
 XFLAGS = -m64 -DX64 -mcmodel=kernel -mtls-direct-seg-refs -mno-red-zone
 LDFLAGS = -m elf_x86_64 -nodefaultlibs
 QEMU ?= qemu-system-x86_64
+MEMFS = "yes"
 else
 XFLAGS = -m32
 LDFLAGS = -m elf_i386 -nodefaultlibs
@@ -71,12 +72,15 @@ CFLAGS += -ffreestanding -fno-common -nostdlib -Iinclude -gdwarf-2 $(XFLAGS) $(O
 CFLAGS += $(shell $(CC) -fno-stack-protector -E -x c /dev/null >/dev/null 2>&1 && echo -fno-stack-protector)
 ASFLAGS = -fno-pic -gdwarf-2 -Wa,-divide -Iinclude $(XFLAGS)
 
-xv6acrn.elf: out/kernel.elf kernel/acrnloader.c
+out/loader.elf: out/kernel.elf kernel/acrnloader.c
 	@mkdir -p out
 	ld -r -b binary -o kernel.bin out/kernel.elf
 	$(CC) -fno-builtin -fno-pic -m32 -fno-stack-protector -nostdinc -o out/acrnloader.o -c kernel/acrnloader.c
 	$(LD) -m elf_i386 -nodefaultlibs -T kernel/flat.lds -o out/loader.elf out/acrnloader.o -b binary kernel.bin
 	$(OBJDUMP) -S out/loader.elf > out/loader.asm
+
+acrntest: out/loader.elf
+	qemu-system-x86_64 -kernel out/loader.elf -serial mon:stdio -m 512 -device isa-debug-exit
 
 xv6.img: out/bootblock out/kernel.elf fs.img
 	dd if=/dev/zero of=xv6.img count=10000
@@ -141,9 +145,18 @@ out/kernel.elf: $(OBJS) $(ENTRYCODE) out/entryother out/initcode $(LINKSCRIPT) $
 	$(OBJDUMP) -S out/kernel.elf > out/kernel.asm
 	$(OBJDUMP) -t out/kernel.elf | sed '1,/SYMBOL TABLE/d; s/ .* / /; /^$$/d' > out/kernel.sym
 
+# ENTRYCODE = kobj/entry$(BITS).o
+# LINKSCRIPT = kernel/kernel$(BITS).ld
+# MEMFSOBJS = $(filter-out ide.o,$(OBJS)) memide.o
+# out/kernelmemfs.elf: $(OBJS) $(ENTRYCODE) out/entryother out/initcode $(LINKSCRIPT) $(FSIMAGE)
+	# $(LD) $(LDFLAGS) -T $(LINKSCRIPT) -o out/kernelmemfs.elf $(ENTRYCODE) $(MEMFSOBJS) -b binary out/initcode out/entryother $(FSIMAGE)
+	# $(OBJDUMP) -S out/kernel.elf > out/kernel.asm
+	# $(OBJDUMP) -t out/kernel.elf | sed '1,/SYMBOL TABLE/d; s/ .* / /; /^$$/d' > out/kernel.sym
+
 MKVECTORS = tools/vectors$(BITS).pl
 kernel/vectors.S: $(MKVECTORS)
 	perl $(MKVECTORS) > kernel/vectors.S
+
 
 ULIB = uobj/ulib.o uobj/usys.o uobj/printf.o uobj/umalloc.o
 
@@ -179,6 +192,7 @@ UPROGS=\
 	fs/ln\
 	fs/ls\
 	fs/mkdir\
+	fs/poweroff\
 	fs/rm\
 	fs/sh\
 	fs/stressfs\
