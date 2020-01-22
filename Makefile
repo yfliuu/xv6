@@ -71,6 +71,13 @@ CFLAGS += -ffreestanding -fno-common -nostdlib -Iinclude -gdwarf-2 $(XFLAGS) $(O
 CFLAGS += $(shell $(CC) -fno-stack-protector -E -x c /dev/null >/dev/null 2>&1 && echo -fno-stack-protector)
 ASFLAGS = -fno-pic -gdwarf-2 -Wa,-divide -Iinclude $(XFLAGS)
 
+xv6acrn.elf: out/kernel.elf kernel/acrnloader.c
+	@mkdir -p out
+	ld -r -b binary -o kernel.bin out/kernel.elf
+	$(CC) -fno-builtin -fno-pic -m32 -fno-stack-protector -nostdinc -o out/acrnloader.o -c kernel/acrnloader.c
+	$(LD) -m elf_i386 -nodefaultlibs -T kernel/flat.lds -o out/loader.elf out/acrnloader.o -b binary kernel.bin
+	$(OBJDUMP) -S out/loader.elf > out/loader.asm
+
 xv6.img: out/bootblock out/kernel.elf fs.img
 	dd if=/dev/zero of=xv6.img count=10000
 	dd if=out/bootblock of=xv6.img conv=notrunc
