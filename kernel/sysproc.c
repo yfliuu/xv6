@@ -79,7 +79,9 @@ sys_sleep(void)
 int
 sys_pwoff(void)
 {
+  outb(0xf4, 0);
   outw(0x604, 0x0 | 0x2000);
+  return 0;
 }
 
 // return how many clock tick interrupts have occurred
