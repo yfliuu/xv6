@@ -74,13 +74,16 @@ ASFLAGS = -fno-pic -gdwarf-2 -Wa,-divide -Iinclude $(XFLAGS)
 
 out/loader.elf: out/kernel.elf kernel/acrnloader.c
 	@mkdir -p out
-	ld -r -b binary -o kernel.bin out/kernel.elf
+	$(OBJCOPY) -S -O binary out/kernel.elf kernel.bin
 	$(CC) -fno-builtin -fno-pic -m32 -fno-stack-protector -nostdinc -o out/acrnloader.o -c kernel/acrnloader.c
 	$(LD) -m elf_i386 -nodefaultlibs -T kernel/flat.lds -o out/loader.elf out/acrnloader.o -b binary kernel.bin
 	$(OBJDUMP) -S out/loader.elf > out/loader.asm
 
 acrntest: out/loader.elf
 	qemu-system-x86_64 -kernel out/loader.elf -serial mon:stdio -m 512 -device isa-debug-exit
+
+acrntest-gdb: out/loader.elf
+	qemu-system-x86_64 -kernel out/loader.elf -serial mon:stdio -m 512 -device isa-debug-exit -S -gdb tcp::1234
 
 xv6.img: out/bootblock out/kernel.elf fs.img
 	dd if=/dev/zero of=xv6.img count=10000

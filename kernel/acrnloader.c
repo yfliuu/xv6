@@ -11,6 +11,19 @@ typedef unsigned char uint8_t;
 extern char _binary_kernel_bin_start[];
 extern char _binary_kernel_bin_size[];
 
+asm(
+    "mb_magic = 0x1BADB002 \n\t"
+    "mb_flags = 0x2 \n\t"
+    ".long mb_magic, mb_flags, 0 - (mb_magic + mb_flags) \n\t"
+ 
+    ".globl start \n\t"
+    "start: \n\t"
+    "mov $stacktop, %esp \n\t"
+    "call loadmain \n\t"
+    "spin: \n\t"
+    "jmp spin \n\t"
+);
+
 struct mbheader {
     uint32_t magic;
     uint32_t flags;
@@ -22,21 +35,33 @@ struct mbheader {
     uint32_t entry_addr;
 };
 
-void memcpy(uint8_t *dst, const uint8_t *src, uint32_t size) {
-    int i;
-    for (i = 0; i < size; i++)
-        dst[i] = src[i];
+void memcpy(void *dst, const void *src, uint32_t n) {
+    const char *s;
+    char *d;
+
+    s = src;
+    d = dst;
+    if (s < d && s + n > d) {
+        s += n;
+        d += n;
+        while (n-- > 0)
+            *--d = *--s;
+    } else
+        while (n-- > 0)
+            *d++ = *s++;
 }
 
-int start(void) {
+int loadmain(void) {
     struct mbheader *hdr;
     void (*entry)(void);
     int found = 0;
-    uint8_t x[8192];
+    uint32_t *x;
     uint32_t n;
 
+    x = (uint32_t *)0x10000;
+
     // multiboot header must be in the first 8192 bytes
-    memcpy(x, _binary_kernel_bin_start, 8192);
+    memcpy((void *)x, (void *)_binary_kernel_bin_start, 8192);
 
     for (n = 0; n < 8192 / 4; n++)
         if (x[n] == 0x1BADB002)
@@ -56,7 +81,7 @@ int start(void) {
     if (hdr->load_end_addr < hdr->load_addr)
         return -1;  // no idea how much to load
 
-    memcpy((uint8_t *)hdr->load_addr, _binary_kernel_bin_start, (uint32_t)_binary_kernel_bin_size);
+    memcpy((void *)hdr->load_addr, (void *)((uint32_t *)_binary_kernel_bin_start + n), (uint32_t)&_binary_kernel_bin_size);
 
     // Call the entry point from the multiboot header.
     // Does not return!

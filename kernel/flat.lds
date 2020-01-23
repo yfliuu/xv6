@@ -18,6 +18,10 @@ SECTIONS
     . = ALIGN(16);
     .stack : { *(stack) }
     . = ALIGN(16);
+    . = . + 4096;
+    PROVIDE(stacktop = .);
+    . = . + 16;
+    . = ALIGN(16);
     bss_start = .;
     .bss : { *(.bss) }
     . = ALIGN(4K);
