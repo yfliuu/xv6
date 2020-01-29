@@ -8,13 +8,23 @@ char buf[512];
 int
 cc_read(int fd, char *buf, int size)
 {
-    return ccall(1, SYS_read, fd, buf, size, 0);
+  return ccall(1, SYS_read, fd, (uint64)buf, size, 0);
 }
 
 int
 cc_write(int fd, char *buf, int size)
 {
-    return ccall(1, SYS_write, fd, buf, size, 0);
+  return ccall(1, SYS_write, fd, (uint64)buf, size, 0);
+}
+
+int cc_open(char *path, int omode)
+{
+  return ccall(1, SYS_open, (uint64)path, omode, 0, 0);
+}
+
+int cc_close(int fd)
+{
+  return ccall(1, SYS_close, fd, 0, 0, 0);
 }
 
 void

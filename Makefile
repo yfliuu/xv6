@@ -194,6 +194,7 @@ out/mkfs: tools/mkfs.c include/fs.h
 
 UPROGS=\
 	fs/cat\
+	fs/ccat\
 	fs/echo\
 	fs/forktest\
 	fs/grep\

@@ -42,6 +42,54 @@ fetcharg_addr(struct trapframe *tf, int n) {
     return (uint64 *)0x0;
 }
 
+// Repoint const char string
+void reloc_const_char(struct trapframe *tf, uint64 sdst, int ptr_id)
+{
+    uint64 *ptrp;
+    int len;
+    ptrp = fetcharg_addr(tf, ptr_id);
+    len = strlen((char *)*ptrp);
+    memmove((void *)sdst, (void *)*ptrp, len);
+}
+
+// Repoint read buffers to shared memory, i.e., buffer passed to syscalls and filled
+// Need to be used with writeback
+void reloc_read(struct trapframe *tf, uint64 sdst, uint ssz, int buf_id, int sz_id)
+{
+    uint64 *bufp, *szp;
+    bufp = fetcharg_addr(tf, buf_id);
+    szp = fetcharg_addr(tf, sz_id);
+    if (*szp > ssz) {
+        // Send out warning
+        *szp = ssz;
+    }
+    *bufp = sdst;
+}
+
+// Write back what syscalls written in a read buffer
+void reloc_writeback(struct trapframe *otf, struct trapframe *tf, int buf_id, int sz_id)
+{
+    uint64 *bufp, *obufp, *szp;
+    obufp = fetcharg_addr(otf, buf_id);
+    bufp = fetcharg_addr(tf, buf_id);
+    szp = fetcharg_addr(tf, sz_id);
+    memmove((void *)*obufp, (void *)*bufp, *szp);
+}
+
+// Repoint the write buffer
+void reloc_write(struct trapframe *tf, uint64 sdst, uint ssz, int buf_id, int sz_id)
+{
+    uint64 *bufp, *szp;
+    bufp = fetcharg_addr(tf, buf_id);
+    szp = fetcharg_addr(tf, sz_id);
+    if (*szp > ssz) {
+        // Send out warning
+        *szp = ssz;
+    }
+    memmove((void *)sdst, (void *)*bufp, *szp);
+    *bufp = sdst;
+}
+
 // Prepare cross call: only executed in caller
 // Return target (callee) VM id to be used by crosscall assembly routine
 int
@@ -66,38 +114,16 @@ ccall_pre(void)
     // Buffer replacing
     switch(info->params.syscall_id) {
         case SYS_read: {
-            uint64 *bufp, *szp;
-
-            bufp = fetcharg_addr(&info->tf, 1);
-            szp = fetcharg_addr(&info->tf, 2);
-
-            if (*szp > SHARED_MEM_SHBUF_SIZE) {
-                // Send out warning, we can't return now
-                *szp = SHARED_MEM_SHBUF_SIZE;
-            }
-
-            // Read: point te buffer to shared memory buffer
-            *bufp = (uint64)SHARED_MEM_SHBUF;
+            reloc_read(&info->tf, (uint64)SHARED_MEM_SHBUF, SHARED_MEM_SHBUF_SIZE, 1, 2);
             break;
         }
         case SYS_write: {
-            uint64 *bufp, *szp;
-            char *smem = (char *)SHARED_MEM_SHBUF;
-
-            bufp = fetcharg_addr(&info->tf, 1);
-            szp = fetcharg_addr(&info->tf, 2);
-
-            if (*szp > SHARED_MEM_SHBUF_SIZE) {
-                // Send out warning, we can't return now
-                *szp = SHARED_MEM_SHBUF_SIZE;
-            }
-
-            // Write: copy buffer to shared memory
-            memmove(smem, bufp, *szp); 
+            reloc_write(&info->tf, (uint64)SHARED_MEM_SHBUF, SHARED_MEM_SHBUF_SIZE, 1, 2); 
             break;
         }
-        default: {
-            // Print error messages
+        case SYS_open: {
+            reloc_read(&info->tf, (uint64)SHARED_MEM_SHBUF, SHARED_MEM_SHBUF_SIZE, 1, 2);
+            break;
         }
     }
 
@@ -145,24 +171,8 @@ ccall_ret(void)
     // Buffer restore
     switch(info->params.syscall_id) {
         case SYS_read: {
-            uint64 *bufp, *szp, *ubufp;
-
-            bufp = fetcharg_addr(&info->tf, 1);
-            ubufp = fetcharg_addr(&info->otf, 1);
-            szp = fetcharg_addr(&info->tf, 2);
-
-            if (*szp > SHARED_MEM_SHBUF_SIZE) {
-                // Send out warning, we can't return now
-                *szp = SHARED_MEM_SHBUF_SIZE;
-            }
-
-            memmove(ubufp, bufp, *szp);
+            reloc_writeback(&info->otf, &info->tf, 1, 2);
             break;
-        }
-        case SYS_write: {
-        }
-        default: {
-            // Print error messages
         }
     }
 
