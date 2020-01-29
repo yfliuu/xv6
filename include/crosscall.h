@@ -34,23 +34,8 @@ struct shared_info {
   struct trapframe tf;          // Buffer adjusted trapframe
 };
 
-static inline uint64
-read_gs(void) {
-  uint64 val;
-  asm volatile("mov %%gs,%0" : "=r" (val));
-  return val;
-}
-
-static inline void
-set_ccall_state(void) {
-  loadgs(CCALL_STATE_VAL);
-}
-
-static inline void
-clr_ccall_state(void) {
-  loadgs(0x0);
-}
-
+void set_ccall_state(void);
+void clr_ccall_state(void);
 int is_ccall_state(void);
 
 extern struct proc *_proc_cc;

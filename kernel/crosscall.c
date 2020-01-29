@@ -179,8 +179,29 @@ ccall_ret(void)
     return info->params.ret;
 }
 
+static inline uint64
+read_dr0(void) {
+  uint64 val;
+  asm volatile("mov %%dr0,%0" : "=r" (val));
+  return val;
+}
+
+static inline void
+write_dr0(uint64 val) {
+  asm volatile("mov %0,%%dr0" : : "r" (val));
+}
+
+void
+set_ccall_state(void) {
+  write_dr0(CCALL_STATE_VAL);
+}
+
+void
+clr_ccall_state(void) {
+  write_dr0(0x0);
+}
 // Check if we're the owner, or the "trespasser"
 int
 is_ccall_state(void) {
-  return read_gs() == (uint64)CCALL_STATE_VAL;
+  return read_dr0() == (uint64)CCALL_STATE_VAL;
 }
