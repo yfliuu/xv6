@@ -130,6 +130,7 @@ panic(char *s)
   for(i=0; i<10; i++)
     cprintf(" %p", pcs[i]);
   panicked = 1; // freeze other CPU
+  outb(0xf4, 0);
   for(;;)
     ;
 }

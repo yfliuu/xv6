@@ -6,7 +6,7 @@
 #include "memlayout.h"
 
 #define CCALL_STATE_VAL     0x4
-#define SHARED_MEM_ADDR     (P2V(0x80000))
+#define SHARED_MEM_ADDR     (P2V(0x200000))
 #define SHARED_MEM_SHBUF    (SHARED_MEM_ADDR + 0x1000)
 #define SHARED_MEM_SHBUF_SIZE    0x2000
 #define SHARED_MEM_STACK    (SHARED_MEM_ADDR + 0x4000)

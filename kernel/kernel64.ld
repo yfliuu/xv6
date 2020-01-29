@@ -57,17 +57,12 @@ SECTIONS
 
 	. = . + 0x1000;
 
-	. = ALIGN(0x1000);
+	/* Hopefully we'll align to 0xffffffff80200000 
+	 * We'll use physical 0x200000 as the start of shared memory
+	 */
+	. = ALIGN(0x100000);
 
-	PROVIDE(tmp_stack = .);
-
-	. = . + 0x1000;
-
-	. = ALIGN(0x1000);
-
-	PROVIDE(sharedmem = .);
-
-	. = . + 0x1000;
+	. = . + 0x10000;
 
 	. = ALIGN(0x1000);
 
