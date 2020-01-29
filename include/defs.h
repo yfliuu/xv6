@@ -1,3 +1,8 @@
+#ifndef _DEF_H_
+#define _DEF_H_
+
+#include "types.h"
+
 struct buf;
 struct context;
 struct file;
@@ -19,6 +24,12 @@ void            consoleinit(void);
 void            cprintf(char*, ...);
 void            consoleintr(int(*)(void));
 void            panic(char*) __attribute__((noreturn));
+
+// ccall.S
+int             crosscall(void);
+
+// crosscall.c
+void            crosscall_init(void);
 
 // exec.c
 int             exec(char*, char**);
@@ -116,6 +127,7 @@ void            scheduler(void) __attribute__((noreturn));
 void            sched(void);
 void            sleep(void*, struct spinlock*);
 void            userinit(void);
+struct proc*    ccall_stub_init(void);
 int             wait(void);
 void            wakeup(void*);
 void            yield(void);
@@ -150,6 +162,7 @@ int             arguintp(int, uintp*);
 int             fetchuintp(uintp, uintp*);
 int             fetchstr(uintp, char**);
 void            syscall(void);
+int             syscall_api(int);
 
 // timer.c
 void            timerinit(void);
@@ -185,3 +198,5 @@ void            clearpteu(pde_t *pgdir, char *uva);
 
 // number of elements in fixed-size array
 #define NELEM(x) (sizeof(x)/sizeof((x)[0]))
+
+#endif

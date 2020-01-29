@@ -1,3 +1,5 @@
+#ifndef _MEMLAYOUT_H_
+#define _MEMLAYOUT_H_
 // Memory layout
 
 #define EXTMEM  0x100000            // Start of extended memory
@@ -27,3 +29,5 @@ static inline void *p2v(uintp a) { return (void *) ((a) + ((uintp)KERNBASE)); }
 
 #define V2P_WO(x) ((x) - KERNBASE)    // same as V2P, but without casts
 #define P2V_WO(x) ((x) + KERNBASE)    // same as V2P, but without casts
+
+#endif

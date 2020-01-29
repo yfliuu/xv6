@@ -5,6 +5,7 @@
 #include "memlayout.h"
 #include "mmu.h"
 #include "proc.h"
+#include "crosscall.h"
 
 int
 sys_fork(void)
@@ -95,4 +96,30 @@ sys_uptime(void)
   xticks = ticks;
   release(&tickslock);
   return xticks;
+}
+
+int
+sys_ccall(void)
+{
+  struct shared_info *smem = (struct shared_info *)SHARED_MEM_ADDR;
+  int ret; 
+  uint64 callee_id, syscall_id;
+
+  fetchuintp(0, &callee_id);
+  fetchuintp(1, &syscall_id);
+
+  // TODO: Access control && Buffer change
+
+  // Wait for callee ready
+  while (smem->magic != SHARED_MEM_MAGIC)
+    ;
+
+  smem->params.callee_id = callee_id;
+  smem->params.syscall_id = syscall_id;
+
+  memmove(&smem->otf, proc->tf, sizeof(struct trapframe));
+
+  ret = crosscall();
+
+  return ret;
 }

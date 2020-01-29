@@ -10,7 +10,7 @@ char *argv[] = { "sh", 0 };
 int
 main(void)
 {
-  int pid, wpid;
+  int pid, pid2, wpid;
 
   if(open("console", O_RDWR) < 0){
     mknod("console", 1, 1);
@@ -27,6 +27,16 @@ main(void)
       exit();
     }
     if(pid == 0){
+      pid2 = fork();
+      if (pid2 < 0) {
+        printf(1, "init: child fork stub failed\n");
+        exit();
+      }
+      if (pid2 == 0) {
+        exec("stub", argv);
+        printf(1, "init: exec stub failed\n");
+        exit();
+      }
       exec("sh", argv);
       printf(1, "init: exec sh failed\n");
       exit();

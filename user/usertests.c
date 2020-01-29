@@ -1451,8 +1451,8 @@ sbrktest(void)
 void
 validateint(int *p)
 {
-  int res;
 #ifndef X64
+  int res;
   asm("mov %%esp, %%ebx\n\t"
       "mov %3, %%esp\n\t"
       "int %2\n\t"

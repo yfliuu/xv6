@@ -1,3 +1,8 @@
+#ifndef _PROC_H_
+#define _PROC_H_
+
+#include "param.h"
+
 // Segments in proc->gdt.
 #define NSEGS     7
 
@@ -72,7 +77,7 @@ struct context {
 };
 #endif
 
-enum procstate { UNUSED, EMBRYO, SLEEPING, RUNNABLE, RUNNING, ZOMBIE };
+enum procstate { UNUSED, EMBRYO, SLEEPING, RUNNABLE, RUNNING, ZOMBIE, CCALL_STUB };
 
 // Per-process state
 struct proc {
@@ -96,3 +101,5 @@ struct proc {
 //   original data and bss
 //   fixed-size stack
 //   expandable heap
+
+#endif

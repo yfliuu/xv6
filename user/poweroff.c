@@ -7,4 +7,6 @@ main(int argc, char *argv[])
 {
     // To poweroff, add -device isa-debug-exit to qemu
     pwoff();
+    // Make compiler happy
+    return 0;
 }

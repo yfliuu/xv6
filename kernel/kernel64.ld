@@ -53,6 +53,24 @@ SECTIONS
 
 	. = ALIGN(0x1000);
 
+	PROVIDE(spml4_root = .);
+
+	. = . + 0x1000;
+
+	. = ALIGN(0x1000);
+
+	PROVIDE(tmp_stack = .);
+
+	. = . + 0x1000;
+
+	. = ALIGN(0x1000);
+
+	PROVIDE(sharedmem = .);
+
+	. = . + 0x1000;
+
+	. = ALIGN(0x1000);
+
 	PROVIDE(end = .);
 
 	/DISCARD/ : {

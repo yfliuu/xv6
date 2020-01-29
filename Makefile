@@ -1,6 +1,7 @@
 -include local.mk
 
 X64 ?= yes
+CALLEE ?= yes
 
 ifeq ("$(X64)","yes")
 BITS = 64
@@ -15,11 +16,17 @@ LDFLAGS = -m elf_i386 -nodefaultlibs
 QEMU ?= qemu-system-i386
 endif
 
+ifeq ("$(CALLEE)", "yes")
+XFLAGS += -DCCALL_CALLEE
+endif
+
 OPT ?= -O0
 
 OBJS := \
 	kobj/bio.o\
 	kobj/console.o\
+	kobj/crosscall.o\
+	kobj/ccall.o\
 	kobj/exec.o\
 	kobj/file.o\
 	kobj/fs.o\
@@ -80,10 +87,10 @@ out/loader.elf: out/kernel.elf kernel/acrnloader.c
 	$(OBJDUMP) -S out/loader.elf > out/loader.asm
 
 acrntest: out/loader.elf
-	qemu-system-x86_64 -kernel out/loader.elf -serial mon:stdio -m 512 -device isa-debug-exit
+	qemu-system-x86_64 -kernel out/loader.elf -serial mon:stdio -m 512 -smp 2 -device isa-debug-exit
 
 acrntest-gdb: out/loader.elf
-	qemu-system-x86_64 -kernel out/loader.elf -serial mon:stdio -m 512 -device isa-debug-exit -S -gdb tcp::1234
+	qemu-system-x86_64 -kernel out/loader.elf -serial mon:stdio -m 512 -smp 2 -device isa-debug-exit -S -gdb tcp::1234
 
 xv6.img: out/bootblock out/kernel.elf fs.img
 	dd if=/dev/zero of=xv6.img count=10000
@@ -199,6 +206,7 @@ UPROGS=\
 	fs/rm\
 	fs/sh\
 	fs/stressfs\
+	fs/stub\
 	fs/usertests\
 	fs/wc\
 	fs/zombie\

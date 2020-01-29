@@ -104,6 +104,36 @@ userinit(void)
   p->state = RUNNABLE;
 }
 
+struct proc *
+ccall_stub_init(void)
+{
+  struct proc *p;
+  extern char _binary_out_initcode_start[], _binary_out_initcode_size[];
+  
+  p = allocproc();
+  initproc = p;
+  if((p->pgdir = setupkvm()) == 0)
+    panic("userinit: out of memory?");
+  inituvm(p->pgdir, _binary_out_initcode_start, (uintp)_binary_out_initcode_size);
+  p->sz = PGSIZE;
+  memset(p->tf, 0, sizeof(*p->tf));
+  p->tf->cs = (SEG_UCODE << 3) | DPL_USER;
+  p->tf->ds = (SEG_UDATA << 3) | DPL_USER;
+#ifndef X64
+  p->tf->es = p->tf->ds;
+  p->tf->ss = p->tf->ds;
+#endif
+  p->tf->eflags = FL_IF;
+  p->tf->esp = PGSIZE;
+  p->tf->eip = 0;  // beginning of initcode.S
+
+  safestrcpy(p->name, "stub", sizeof(p->name));
+  p->cwd = namei("/");
+
+  p->state = CCALL_STUB;
+  return p;
+}
+
 // Grow current process's memory by n bytes.
 // Return 0 on success, -1 on failure.
 int
@@ -439,7 +469,8 @@ procdump(void)
   [SLEEPING]  "sleep ",
   [RUNNABLE]  "runble",
   [RUNNING]   "run   ",
-  [ZOMBIE]    "zombie"
+  [ZOMBIE]    "zombie",
+  [CCALL_STUB] "ccall_stub"
   };
   int i;
   struct proc *p;

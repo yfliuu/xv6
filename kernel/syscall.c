@@ -6,6 +6,7 @@
 #include "proc.h"
 #include "x86.h"
 #include "syscall.h"
+#include "crosscall.h"
 
 // User code makes a system call with INT T_SYSCALL.
 // System call number in %eax.
@@ -63,6 +64,8 @@ fetcharg(int n)
   case 4: return proc->tf->r8;
   case 5: return proc->tf->r9;
   }
+  // Make compiler happy
+  return 0;
 }
 
 int
@@ -144,6 +147,7 @@ extern int sys_wait(void);
 extern int sys_write(void);
 extern int sys_uptime(void);
 extern int sys_pwoff(void);
+extern int sys_ccall(void);
 
 static int (*syscalls[])(void) = {
 [SYS_fork]    sys_fork,
@@ -168,6 +172,7 @@ static int (*syscalls[])(void) = {
 [SYS_mkdir]   sys_mkdir,
 [SYS_close]   sys_close,
 [SYS_pwoff]   sys_pwoff,
+[SYS_ccall]   sys_ccall,
 };
 
 void
@@ -183,4 +188,16 @@ syscall(void)
             proc->pid, proc->name, num);
     proc->tf->eax = -1;
   }
+}
+
+// For use inside kernel space
+int
+syscall_api(int num)
+{
+  if (is_ccall_state()) proc = _proc_cc;
+  if (num > 0 && num < NELEM(syscalls) && syscalls[num] && num != SYS_ccall) {
+    return syscalls[num]();
+  }
+
+  return -1;
 }

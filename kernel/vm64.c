@@ -34,6 +34,7 @@
 
 __thread struct cpu *cpu;
 __thread struct proc *proc;
+void *idt_global;
 
 static pde_t *kpml4;
 static pde_t *kpdpt;
@@ -87,6 +88,7 @@ seginit(void)
   mkgate(idt, 64, vectors[64], 3, 1);
 
   lidt((void*) idt, PGSIZE);
+  idt_global = idt;
 
   // create a page for cpu local storage 
   local = kalloc();
@@ -155,7 +157,9 @@ void
 kvmalloc(void)
 {
   int n;
-  kpml4 = (pde_t*) kalloc();
+  extern char spml4_root[];
+
+  kpml4 = (pde_t*) spml4_root;
   kpdpt = (pde_t*) kalloc();
   kpgdir0 = (pde_t*) kalloc();
   kpgdir1 = (pde_t*) kalloc();
