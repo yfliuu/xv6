@@ -4,6 +4,8 @@
 #include "types.h"
 #include "x86.h"
 #include "memlayout.h"
+#include "mmu.h"
+#include "proc.h"
 
 #define CCALL_STATE_VAL     0x4
 #define SHARED_MEM_ADDR     (P2V(0x200000))
@@ -28,10 +30,13 @@ struct shared_info {
   uint64 caller_idt_size;
   void *callee_idt;
   uint64 callee_idt_size;
+  uint64 saved_cr3;
+  uint64 saved_stack;
   struct proc *stub;            // Ptr to stub PCB. Set by callee during initialization
   struct callparams params;     // Calling parameters
   struct trapframe otf;         // Original trapframe
   struct trapframe tf;          // Buffer adjusted trapframe
+  struct cpu _cpu;              // We can't share other's cpu struct
 };
 
 void set_ccall_state(void);
@@ -39,4 +44,5 @@ void clr_ccall_state(void);
 int is_ccall_state(void);
 
 extern struct proc *_proc_cc;
+extern struct cpu *_cpu_cc;
 #endif

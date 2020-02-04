@@ -16,9 +16,18 @@ SECTIONS
 
 	PROVIDE(begin = .);
 
-	.text : AT(mboot_load_addr) {
+	/* .text : AT(mboot_load_addr) {
 		*(.text .rela.text .stub .text.* .gnu.linkonce.t.*)
+	} */
+
+	.text : AT(mboot_load_addr) {
+		*(.text .rela.text .stub .gnu.linkonce.t.*)
+		. = ALIGN(0x1000);
+		*(.text.cross)
+		*(.text.*)
 	}
+
+	. = ALIGN(0x1000);
 
 	PROVIDE(etext = .);	/* Define the 'etext' symbol to this value */
 
@@ -61,6 +70,8 @@ SECTIONS
 	 * We'll use physical 0x200000 as the start of shared memory
 	 */
 	. = ALIGN(0x100000);
+
+	PROVIDE(shared_memory_start = .);
 
 	. = . + 0x10000;
 

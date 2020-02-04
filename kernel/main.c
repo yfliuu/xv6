@@ -17,14 +17,17 @@ extern char end[]; // first address after kernel loaded from ELF file
 int
 main(void)
 {
+  extern char spml4_root[];
+  extern void out_of_universe(void);
   uartearlyinit();
   kinit1(end, P2V(4*1024*1024)); // phys page allocator
   kvmalloc();      // kernel page table
+  crosscall_early_init();
   if (acpiinit()) // try to use acpi for machine info
     mpinit();      // otherwise use bios MP tables
   lapicinit();
   seginit();       // set up segments
-  cprintf("\ncpu%d: starting xv6\n\n", cpu->id);
+  cprintf("\ncpu%d: starting xv6\n\n", cpu()->id);
   picinit();       // interrupt controller
   ioapicinit();    // another interrupt controller
   consoleinit();   // I/O devices & their interrupts
@@ -42,6 +45,8 @@ main(void)
   userinit();      // first user process
   crosscall_init();
   // Finish setting up this processor in mpmain.
+  cprintf("spml4_root: 0x%x\n", spml4_root);
+  cprintf("addr out_of_universe: 0x%x\n", out_of_universe);
   mpmain();
 }
 
@@ -59,9 +64,9 @@ mpenter(void)
 static void
 mpmain(void)
 {
-  cprintf("cpu%d: starting\n", cpu->id);
+  cprintf("cpu%d: starting\n", cpu()->id);
   idtinit();       // load idt register
-  xchg(&cpu->started, 1); // tell startothers() we're up
+  xchg(&cpu()->started, 1); // tell startothers() we're up
   scheduler();     // start running processes
 }
 

@@ -6,19 +6,59 @@
 
 
 struct proc *_proc_cc;
+struct cpu *_cpu_cc;
 char *shbuf;
+
+static inline uint64
+rcr3() 
+{
+    uint64 val;
+    asm volatile("mov %%cr3,%0" : "=r" (val));
+    return val;
+}
+
+void
+save_stack(uint64 val)
+{
+    struct shared_info *info = (struct shared_info *)SHARED_MEM_ADDR;
+    info->saved_stack = val;
+}
+
+uint64 
+get_saved_stack()
+{
+    struct shared_info *info = (struct shared_info *)SHARED_MEM_ADDR;
+    return info->saved_stack;
+}
+
+void
+crosscall_early_init()
+{
+    clr_ccall_state();
+}
 
 void
 crosscall_init()
 {
-#if CCALL_CALLEE
     struct shared_info *info = (struct shared_info *)SHARED_MEM_ADDR;
     extern void *idt_global;
+    extern char shared_memory_start[];
+
+    cprintf("shared memory start from ld: 0x%x\n", shared_memory_start);
+    cprintf("shared memory start: 0x%x\n", SHARED_MEM_ADDR);
+
+#if CCALL_CALLEE
+    cprintf("crosscall init\n");
 
     memset(info, 0, sizeof(struct shared_info));
     info->stub = ccall_stub_init();
     info->callee_idt = idt_global;
     info->callee_idt_size = PGSIZE;
+    info->params.callee_id = 1;
+    // TODO: Incompatible pointer types
+    info->_cpu.scheduler = scheduler;
+    cprintf("Callee idt: %x\n", info->callee_idt);
+    cprintf("cpu: %x, cpu->ncli: %x\n", cpu(), cpu()->ncli);
 
     // Prepare shared memory allocation
     shbuf = (char *)SHARED_MEM_SHBUF;
@@ -45,11 +85,12 @@ fetcharg_addr(struct trapframe *tf, int n) {
 // Repoint const char string
 void reloc_const_char(struct trapframe *tf, uint64 sdst, int ptr_id)
 {
-    uint64 *ptrp;
     int len;
-    ptrp = fetcharg_addr(tf, ptr_id);
-    len = strlen((char *)*ptrp);
-    memmove((void *)sdst, (void *)*ptrp, len);
+    char *str;
+    str = (char *)*fetcharg_addr(tf, ptr_id);
+    len = strlen(str);
+    strncpy((char *)sdst, str, len + 1);
+    *fetcharg_addr(tf, ptr_id) = sdst;
 }
 
 // Repoint read buffers to shared memory, i.e., buffer passed to syscalls and filled
@@ -90,6 +131,7 @@ void reloc_write(struct trapframe *tf, uint64 sdst, uint ssz, int buf_id, int sz
     *bufp = sdst;
 }
 
+
 // Prepare cross call: only executed in caller
 // Return target (callee) VM id to be used by crosscall assembly routine
 int
@@ -97,13 +139,22 @@ ccall_pre(void)
 {
     struct shared_info *info = (struct shared_info *)SHARED_MEM_ADDR;
     extern void *idt_global;
+    extern char spml4_root[];
+    void *callee_scheduler;
     int i;
 
     info->caller_idt = idt_global;
     info->caller_idt_size = PGSIZE;
+    info->params.caller_id = 2;
 
-    // TODO: Probably not going to be useful since we disable interrupts
-    // lidt(info->callee_idt, info->callee_idt_size);
+    // Copy cpu structure, keep the scheduler as is
+    // the _cpu.scheduler is initialized by callee
+    callee_scheduler = info->_cpu.scheduler;
+    memmove(&info->_cpu, cpu(), sizeof(struct cpu));
+    info->_cpu.scheduler = callee_scheduler;
+    // TODO: Allocate a page of local storage
+
+    lidt(info->callee_idt, info->callee_idt_size);
 
     // Adjust the trapframe to pop the callee_id and syscall_id
     for (i = 0; i < 4; i++)
@@ -122,39 +173,51 @@ ccall_pre(void)
             break;
         }
         case SYS_open: {
-            reloc_read(&info->tf, (uint64)SHARED_MEM_SHBUF, SHARED_MEM_SHBUF_SIZE, 1, 2);
+            reloc_const_char(&info->tf, (uint64)SHARED_MEM_SHBUF, 0);
             break;
         }
     }
 
-    set_ccall_state();
+    info->saved_cr3 = rcr3();
+    lcr3(v2p(spml4_root));
 
+    set_ccall_state();
     return info->params.callee_id;
 }
 
 // This function should only be executed in callee
 // Return source (caller) VM id to be used by crosscall assembly routine
 int 
-ccall_post(void)
+ccall_post(uint64 old_rsp)
 {
     struct shared_info *info = (struct shared_info *)SHARED_MEM_ADDR;
-    struct trapframe _bak;
+    struct trapframe *_bak;
     int ret;
+    uintp _sz;
+
+    info->saved_stack = old_rsp;
 
     _proc_cc = info->stub;
+    _cpu_cc = &info->_cpu;
+
+    // Need to set this to high value otherwise
+    // fetch args methods will reject the shared
+    // memory buffer
+    _sz = _proc_cc->sz;
+    _proc_cc->sz = P2V(PHYSTOP);
 
     // Save original process trapframe
-    memmove(&_bak, _proc_cc->tf, sizeof(struct trapframe));
+    _bak = _proc_cc->tf;
 
     // Change to caller process trapframe
-    memmove(_proc_cc->tf, &info->tf, sizeof(struct trapframe));
+    _proc_cc->tf = &info->tf;
 
     // Call actual system call
-    // The _proc_cc->tf must be adjusted to pop the callee_id and syscall_id
     ret = syscall_api(info->params.syscall_id);
     info->params.ret = ret;
 
-    memmove(&_proc_cc->tf, &_bak, sizeof(struct trapframe));
+    _proc_cc->tf = _bak;
+    _proc_cc->sz = _sz;
 
     return info->params.caller_id;
 }
@@ -165,8 +228,13 @@ int
 ccall_ret(void)
 {
     struct shared_info *info = (struct shared_info *)SHARED_MEM_ADDR;
-
     clr_ccall_state();
+
+    lidt(info->caller_idt, info->caller_idt_size);
+
+
+    // Reload cr3
+    lcr3(info->saved_cr3);
 
     // Buffer restore
     switch(info->params.syscall_id) {

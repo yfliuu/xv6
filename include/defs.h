@@ -30,6 +30,7 @@ int             crosscall(void);
 
 // crosscall.c
 void            crosscall_init(void);
+void            crosscall_early_init(void);
 
 // exec.c
 int             exec(char*, char**);

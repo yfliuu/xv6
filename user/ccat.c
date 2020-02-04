@@ -33,7 +33,7 @@ cat(int fd)
   int n;
 
   while((n = cc_read(fd, buf, sizeof(buf))) > 0)
-    cc_write(1, buf, n);
+    write(1, buf, n);
   if(n < 0){
     printf(1, "cat: read error\n");
     exit();

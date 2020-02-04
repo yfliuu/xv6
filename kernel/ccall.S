@@ -1,3 +1,4 @@
+.section .text.cross
 .globl crosscall
 crosscall:
     push %rbp
@@ -27,19 +28,31 @@ crosscall:
     push %rax
 
     # Switch stack to shared stack
-    mov %rsp, (%rdi)
-    mov $0xffffffff00840000, %rsp
-    push %rdi
+    # rdi will be saved to shared memory by ccall_post
+    mov %rsp, %rdi
+    mov $0xffffffff80240000, %rsp
+
+    # Flush TLB
+    mov %cr3, %ebx
+    mov %ebx, %cr3
+
+    # Flush cache
+    wbinvd
 
     mov %eax, %ecx
     mov $0, %eax
     vmfunc
 
     # Now in another universe
-
-    # Flush TLB
+.globl out_of_universe
+out_of_universe:
 
     call ccall_post
+
+    # Flush TLB
+    mov %cr3, %rbx
+    mov %rbx, %cr3
+    wbinvd
 
     # ccall_post will return caller VM id
     mov %eax, %ecx
@@ -48,11 +61,14 @@ crosscall:
 
     # Now back to our universe
 
-    # Flush TLB again
+    # Flush TLB and cache again
+    mov %cr3, %rbx
+    mov %rbx, %cr3
+    wbinvd
 
     # Switch stack back
-    pop %rdi
-    mov %rdi, %rsp
+    call get_saved_stack
+    mov %rax, %rsp
 
     # Restore context
     pop %rax

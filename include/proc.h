@@ -38,8 +38,10 @@ extern int ncpu;
 // This is similar to how thread-local variables are implemented
 // in thread libraries such as Linux pthreads.
 #if X64
-extern __thread struct cpu *cpu;
-extern __thread struct proc *proc;
+extern __thread struct cpu *_cpu;
+extern __thread struct proc *_proc;
+struct cpu *cpu();
+struct proc *proc();
 #else
 extern struct cpu *cpu asm("%gs:0");       // &cpus[cpunum()]
 extern struct proc *proc asm("%gs:4");     // cpus[cpunum()].proc

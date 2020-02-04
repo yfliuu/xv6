@@ -39,7 +39,7 @@ sys_kill(void)
 int
 sys_getpid(void)
 {
-  return proc->pid;
+  return proc()->pid;
 }
 
 uintp
@@ -50,7 +50,7 @@ sys_sbrk(void)
 
   if(arguintp(0, &n) < 0)
     return -1;
-  addr = proc->sz;
+  addr = proc()->sz;
   if(growproc(n) < 0)
     return -1;
   return addr;
@@ -67,7 +67,7 @@ sys_sleep(void)
   acquire(&tickslock);
   ticks0 = ticks;
   while(ticks - ticks0 < n){
-    if(proc->killed){
+    if(proc()->killed){
       release(&tickslock);
       return -1;
     }
@@ -103,10 +103,10 @@ sys_ccall(void)
 {
   struct shared_info *smem = (struct shared_info *)SHARED_MEM_ADDR;
   int ret; 
-  uint64 callee_id, syscall_id;
+  int callee_id, syscall_id;
 
-  fetchuintp(0, &callee_id);
-  fetchuintp(1, &syscall_id);
+  argint(0, &callee_id);
+  argint(1, &syscall_id);
 
   // TODO: Access control && Buffer change
 
@@ -117,7 +117,7 @@ sys_ccall(void)
   smem->params.callee_id = callee_id;
   smem->params.syscall_id = syscall_id;
 
-  memmove(&smem->otf, proc->tf, sizeof(struct trapframe));
+  memmove(&smem->otf, proc()->tf, sizeof(struct trapframe));
 
   ret = crosscall();
 

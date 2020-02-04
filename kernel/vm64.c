@@ -31,9 +31,22 @@
 #include "mmu.h"
 #include "proc.h"
 #include "elf.h"
+#include "crosscall.h"
 
-__thread struct cpu *cpu;
-__thread struct proc *proc;
+__thread struct cpu *_cpu;
+__thread struct proc *_proc;
+struct cpu *cpu() {
+  if (is_ccall_state()) {
+    return _cpu_cc; 
+  }
+  return _cpu;
+}
+struct proc *proc() {
+  if (is_ccall_state()) {
+    return _proc_cc;
+  }
+  return _proc;
+}
 void *idt_global;
 
 static pde_t *kpml4;
@@ -104,8 +117,8 @@ seginit(void)
   c = &cpus[cpunum()];
   c->local = local;
 
-  cpu = c;
-  proc = 0;
+  _cpu = c;
+  _proc = 0;
 
   addr = (uint64) tss;
   gdt[0] =         0x0000000000000000;
@@ -194,8 +207,8 @@ switchuvm(struct proc *p)
   pushcli();
   if(p->pgdir == 0)
     panic("switchuvm: no pgdir");
-  tss = (uint*) (((char*) cpu->local) + 1024);
-  tss_set_rsp(tss, 0, (uintp)proc->kstack + KSTACKSIZE);
+  tss = (uint*) (((char*) cpu()->local) + 1024);
+  tss_set_rsp(tss, 0, (uintp)proc()->kstack + KSTACKSIZE);
   pml4 = (void*) PTE_ADDR(p->pgdir[511]);
   lcr3(v2p(pml4));
   popcli();

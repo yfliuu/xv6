@@ -73,8 +73,8 @@ exec(char *path, char **argv)
   ustack[2] = sp - (argc+1)*sizeof(uintp);  // argv pointer
 
 #if X64
-  proc->tf->rdi = argc;
-  proc->tf->rsi = sp - (argc+1)*sizeof(uintp);
+  proc()->tf->rdi = argc;
+  proc()->tf->rsi = sp - (argc+1)*sizeof(uintp);
 #endif
 
   sp -= (3+argc+1) * sizeof(uintp);
@@ -85,15 +85,15 @@ exec(char *path, char **argv)
   for(last=s=path; *s; s++)
     if(*s == '/')
       last = s+1;
-  safestrcpy(proc->name, last, sizeof(proc->name));
+  safestrcpy(proc()->name, last, sizeof(proc()->name));
 
   // Commit to the user image.
-  oldpgdir = proc->pgdir;
-  proc->pgdir = pgdir;
-  proc->sz = sz;
-  proc->tf->eip = elf.entry;  // main
-  proc->tf->esp = sp;
-  switchuvm(proc);
+  oldpgdir = proc()->pgdir;
+  proc()->pgdir = pgdir;
+  proc()->sz = sz;
+  proc()->tf->eip = elf.entry;  // main
+  proc()->tf->esp = sp;
+  switchuvm(proc());
   freevm(oldpgdir);
   return 0;
 
